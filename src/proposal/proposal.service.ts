@@ -30,7 +30,13 @@ export class ProposalService implements IProposalService {
     async getScores(ids: string[]): Promise<{ proposals: IScores[] }> {
 
         const payload = `query Proposals {  
-            proposals (first: 20, skip: 0, where: { id_in: [${[...ids]}]   },    orderBy: "created", orderDirection: desc  ) { 
+            proposals (
+                first: 20, 
+                skip: 0, 
+                where: { id_in: [${[...ids]}] },
+                orderBy: "created", 
+                orderDirection: desc  
+            ) { 
                 scores 
             }
         }`
@@ -38,24 +44,6 @@ export class ProposalService implements IProposalService {
         const { data } =  await axios.post<{ data: { proposals: IScores[] } }>('https://hub.snapshot.org/graphql', {
             operationName: "Proposals",
             query: payload
-        })
-
-        return data.data
-    }
-
-    async fetchDatas(id: string[]): Promise<{ proposal: IProposal }> {
-        const { data } =  await axios.post<{ data: { proposal: IProposal } }>('https://hub.snapshot.org/graphql', {
-            operationName: "Proposal",
-            variables: { id },
-            query: `query Proposal($id: String!) {
-                proposal(id: $id) {
-                title
-                start
-                end
-                state
-                scores
-                }
-            }`
         })
 
         return data.data

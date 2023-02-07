@@ -19,41 +19,68 @@ export class WatchCommand extends Command {
     handle(): void {
         this.bot.command('watch', async (ctx) => {
 
-            const args = ctx.update.message.text.split(' ')
-            const linkArg = args[1]
+            try {
+                const args = ctx.update.message.text.split(' ')
+                const linkArg = args[1]
 
-            if (!linkArg) {
-                return ctx.reply('Sent me proposal url. Example: https://governance.decentraland.org/proposal/?id=78abd320-8730-11ed-b125-310d98b69cd1')
-            }
-
-            const proposalsInDbCount = await this.databaseService.proposal.count();
-
-            const MAX_PROPOSALS_FOR_WATCHING = this.configService.get('MAX_PROPOSALS_FOR_WATCHING')
-
-            if (proposalsInDbCount > +MAX_PROPOSALS_FOR_WATCHING) {
-                return ctx.reply(`Max proposals for watching: ${MAX_PROPOSALS_FOR_WATCHING}`)
-            }
-
-            const idParamInUrl = linkArg.slice(-36)
-            const { data } = await axios.get(`https://governance.decentraland.org/api/proposals/${idParamInUrl}`)
-
-            const snapshotId = data.data.snapshot_id
-            const { proposal } = await this.proposalService.fetchProposalData(snapshotId)
-
-            await this.databaseService.proposal.create({
-                data: {
-                    id: idParamInUrl,
-                    snapshotId,
-                    chatId: ctx.from.id,
-                    title: proposal.title,
-                    start: proposal.start,
-                    end: proposal.end,
-                    yes: proposal.scores[0],
-                    no: proposal.scores[1]
+                if (!linkArg) {
+                    return ctx.reply('Sent proposal url')
                 }
-            })
 
-            ctx.reply(`${proposal.title} has been added to watch list (${proposalsInDbCount + 1}/${MAX_PROPOSALS_FOR_WATCHING})`)
+                const proposalsInDbCount = await this.databaseService.proposal.count();
+
+                const MAX_PROPOSALS_FOR_WATCHING = +this.configService.get('MAX_PROPOSALS_FOR_WATCHING')
+
+                if (proposalsInDbCount > MAX_PROPOSALS_FOR_WATCHING) {
+                    return ctx.reply(`Max watched proposals is ${MAX_PROPOSALS_FOR_WATCHING}`)
+                }
+
+                const url = new URL(linkArg)
+                const params = url.searchParams
+                const id = params.get('id')
+
+                if (!id) {
+                    return ctx.reply(`Requared id param`)
+                }
+
+                const uuidPattern = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i
+
+                if (!uuidPattern.test(id)) {
+                    return ctx.reply("Proposal id must be correct uuid string")
+                }
+
+                const recordCandidate = await this.databaseService.proposal.findFirst({ where: { id }})
+
+                if (recordCandidate) {
+                    return ctx.reply('Proposal already exist in watch list')
+                }
+
+                const { data } = await axios.get(`https://governance.decentraland.org/api/proposals/${id}`)
+
+                const snapshotId = data.data.snapshot_id
+                const { proposal } = await this.proposalService.fetchProposalData(snapshotId)
+
+                await this.databaseService.proposal.create({
+                    data: {
+                        id,
+                        snapshotId,
+                        chatId: ctx.from.id,
+                        title: proposal.title,
+                        start: proposal.start,
+                        end: proposal.end,
+                        yes: proposal.scores[0],
+                        no: proposal.scores[1]
+                    }
+                })
+
+                ctx.reply(
+                    `*${proposal.title}* has been added to watch list (${proposalsInDbCount + 1}/${MAX_PROPOSALS_FOR_WATCHING})`,
+                    { parse_mode: 'Markdown' }
+                )
+            } catch (err: any) {
+                console.error(err)
+                ctx.reply(err.message)
+            }
         })
     }
 }

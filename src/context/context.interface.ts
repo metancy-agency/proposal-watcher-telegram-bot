@@ -1,3 +1,3 @@
-import { Context, Scenes } from "telegraf";
+import { Context } from "telegraf";
 
-export interface IBotContext extends Scenes.WizardContext {};
+export interface IBotContext extends Context {};

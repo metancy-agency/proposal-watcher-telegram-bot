@@ -38,32 +38,36 @@ export class CronService implements ICronService {
                 })
             })
 
-            dbProposalSnapshotIds.forEach(async (dbProposal, i) => {
-                
-                if (Math.floor(dbProposal.yes) !== Math.floor(newPropValues[i].yes)) {
-                    await this.databaseService.proposal.update({
-                        where: {
-                            id: dbProposal.id
-                        },
-                        data: {
-                            yes: newPropValues[i].yes
-                        }
-                    })
-                    console.log('New vote: yes')
-                    this.bot.telegram.sendMessage(dbProposal?.chatId!, 'New vote: yes')
-                }
+            dbProposalSnapshotIds.forEach(async (_, i) => {
 
-                if (Math.floor(dbProposal.no) !== Math.floor(newPropValues[i].no)) {
+                const newYes = Math.floor(newPropValues[i].yes)
+                const newNo = Math.floor(newPropValues[i].no)
+
+                const oldYes =  Math.floor(dbProposalSnapshotIds[i].yes)
+                const oldNo = Math.floor(dbProposalSnapshotIds[i].no)
+                
+                if (oldYes !== newYes || oldNo !== newNo) {
                     await this.databaseService.proposal.update({
                         where: {
-                            id: dbProposal.id
+                            id: dbProposalSnapshotIds[i].id
                         },
                         data: {
+                            yes: newPropValues[i].yes,
                             no: newPropValues[i].no
                         }
                     })
-                    console.log('New vote: no')
-                    this.bot.telegram.sendMessage(dbProposal?.chatId!, 'New vote: no')
+
+                    function covertNumber(n: number): string {
+                        return n.toString().replace(/(.)(?=(\d{3})+$)/g,'$1,')
+                    }
+
+                    this.bot.telegram.sendMessage(
+                        dbProposalSnapshotIds[i].chatId!,
+                        `<b>New voted in ${dbProposalSnapshotIds[i].title}</b>\n\nYes: ${covertNumber(newYes)}\nNo: ${covertNumber(newNo)}`,
+                        {
+                            parse_mode: 'HTML'
+                        }
+                    )
                 }
             })
         })

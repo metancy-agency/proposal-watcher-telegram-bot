@@ -32,10 +32,10 @@ class Bot {
             await this.databaseService.init();
 
             this.commands = [
-                new StartCommand(this.bot, this.configService, this.databaseService, this.proposalService),
+                new StartCommand(this.bot, this.configService),
                 new WatchCommand(this.bot, this.configService, this.databaseService, this.proposalService),
-                new DeleteCommand(this.bot, this.configService, this.databaseService, this.proposalService),
-                new ListCommand(this.bot, this.configService, this.databaseService, this.proposalService)
+                new DeleteCommand(this.bot, this.configService, this.databaseService),
+                new ListCommand(this.bot, this.databaseService)
             ]
 
             for (const command of this.commands) {

@@ -2,16 +2,13 @@ import { Telegraf } from "telegraf";
 import { IConfigService } from "../config/config.interface";
 import { IBotContext } from "../context/context.interface";
 import { IDatabaseService } from "../database/database.interface";
-import { IProposalService } from "../proposal/proposal.interface";
 import { Command } from "./command.class";
-
 
 export class DeleteCommand extends Command {
     constructor (
         bot: Telegraf<IBotContext>, 
         private readonly configService: IConfigService,
-        private readonly databaseService: IDatabaseService,
-        private readonly proposalService: IProposalService
+        private readonly databaseService: IDatabaseService
     ) {
         super(bot);
     }
@@ -19,27 +16,43 @@ export class DeleteCommand extends Command {
     handle(): void {
         this.bot.command('delete', async (ctx) => {
 
-            const args = ctx.update.message.text.split(' ')
-            const linkArg = args[1]
+            try {
+                const args = ctx.update.message.text.split(' ')
+                const id = args[1]
 
-            if (!linkArg) {
-                return ctx.reply('Sent me proposal url. Example: https://governance.decentraland.org/proposal/?id=78abd320-8730-11ed-b125-310d98b69cd1')
-            }
+                if (!id) {
+                    return ctx.reply("Sent me proposal's url")
+                } 
 
-            const proposalsInDbCount = await this.databaseService.proposal.count();
+                const proposalsInDbCount = await this.databaseService.proposal.count();
 
-            if (proposalsInDbCount > 5) {
-                return ctx.reply('Max watched proposals: 5')
-            }
-            const idParamInUrl = linkArg.slice(-36)
-
-            await this.databaseService.proposal.delete({
-                where: {
-                    id: idParamInUrl
+                if (proposalsInDbCount === 0) {
+                    return ctx.reply('Watch list is empty')
                 }
-            })
 
-            ctx.reply(`Proposal has been deleted from watch list`)
+                if (typeof id !== 'string') {
+                    return ctx.reply("Proposal id must be string")
+                }
+
+                const uuidPattern = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i
+
+                if (!uuidPattern.test(id)) {
+                    return ctx.reply("Proposal id must be correct uuid string")
+                }
+
+                const recordCandidate = await this.databaseService.proposal.findFirst({ where: { id }})
+
+                if (!recordCandidate) {
+                    return ctx.reply("Proposal must be exist")
+                }
+
+                await this.databaseService.proposal.delete({ where: { id } })
+
+                ctx.reply(`Proposal has been deleted from watch list`)
+            } catch (err: any) {
+                console.error(err)
+                ctx.reply(err.message)
+            }
         })
     }
 }
